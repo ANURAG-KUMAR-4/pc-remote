@@ -1,186 +1,177 @@
 import os
 import sys
-from flask import Flask, render_template_string, request, jsonify
+import io
+import time
+from flask import Flask, render_template_string, request, jsonify, Response
 import pyautogui
 
-# Disable PyAutoGUI fail-safe to prevent accidental server shutdowns on edge movement
+# Performance Tuning: Remove standard internal latency delays
 pyautogui.FAILSAFE = False
+pyautogui.PAUSE = 0
 
 app = Flask(__name__)
-# Remove default 0.1-second internal latency delays between commands
-pyautogui.PAUSE = 0
-# Complete responsive CSS Grid dashboard interface
-HTML_TEMPLATE = '''
+
+# Security Access Values
+SECRET_URL_PATH = "remote"
+SECURITY_TOKEN = "alpha_secure_99"
+CUSTOM_PORT = 38491
+
+# Visual Mask: Returns a generic Microsoft IIS screen if someone guesses the IP
+IIS_MASK_TEMPLATE = '''
+<!DOCTYPE html>
+<html><head><title>IIS Windows Server</title><style>
+body { font-family: 'Segoe UI', Tahoma, Arial; background-color: #244976; color: #fff; margin: 0; padding: 40px; }
+.container { max-width: 600px; margin: 0 auto; }
+h1 { font-size: 42px; font-weight: 300; margin: 0 0 10px 0; }
+p { font-size: 16px; color: #a9c7ed; line-height: 1.5; }
+</style></head><body><div class="container"><h1>Internet Information Services</h1><p>The web server configuration is currently hosting an inactive static distribution block.</p></div></body></html>
+'''
+
+# The Dashboard UI Engine with Trackpad, Media, App Macros, and Screen Streaming Canvas
+DASHBOARD_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Custom PC Remote Dashboard</title>
+    <title>Production System Console</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-color: #1e293b;
-            --accent-color: #3b82f6;
-            --text-color: #f8fafc;
-            --danger-color: #ef4444;
+            --bg-color: #090d16;
+            --card-color: #131c2e;
+            --accent-color: #2563eb;
+            --text-color: #f1f5f9;
+            --danger-color: #dc2626;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            margin: 0;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            user-select: none;
-            -webkit-user-select: none;
+            margin: 0; padding: 12px;
+            display: flex; flex-direction: column; align-items: center;
+            user-select: none; -webkit-user-select: none;
         }
-        h2 { margin-bottom: 16px; font-weight: 600; font-size: 22px; letter-spacing: -0.025em; }
         .section {
-            width: 100%;
-            max-width: 400px;
-            background: var(--card-color);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            box-sizing: border-box;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            width: 100%; max-width: 420px;
+            background: var(--card-color); border-radius: 12px;
+            padding: 14px; margin-bottom: 12px; box-sizing: border-box;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
         }
         .section-title {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #94a3b8;
-            margin-bottom: 12px;
-            font-weight: 700;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+            color: #64748b; margin-bottom: 10px; font-weight: 700;
+        }
+        #stream-view {
+            width: 100%; height: 180px; background: #000;
+            border-radius: 8px; border: 1px solid #1e293b; object-fit: contain;
         }
         #trackpad {
-            height: 220px;
-            background: #020617;
-            border: 2px dashed #334155;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #64748b;
-            font-size: 14px;
-            touch-action: none;
+            height: 180px; background: #020617; border: 2px dashed #1e293b;
+            border-radius: 8px; display: flex; align-items: center;
+            justify-content: center; color: #475569; font-size: 13px; touch-action: none;
         }
-        .mouse-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 12px;
-        }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .mouse-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         button {
-            background: #334155;
-            color: var(--text-color);
-            border: none;
-            padding: 14px;
-            font-size: 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.1s ease;
+            background: #1e293b; color: var(--text-color); border: none;
+            padding: 12px; font-size: 14px; border-radius: 6px;
+            font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
         button:active { background: var(--accent-color); }
         button.danger:active { background: var(--danger-color); }
-        .kbd-container { display: flex; gap: 8px; }
+        .kbd-container { display: flex; gap: 6px; }
         input[type="text"] {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #475569;
-            background: #020617;
-            color: white;
-            font-size: 16px;
+            flex: 1; padding: 10px; border-radius: 6px;
+            border: 1px solid #334155; background: #020617; color: white; font-size: 14px;
         }
     </style>
 </head>
 <body>
 
-    <h2>💻 Custom System Remote</h2>
-
-    <!-- Vector Capture Workspace -->
+    <!-- Screen Mirroring Frame Window -->
     <div class="section">
-        <div class="section-title">Trackpad Area</div>
-        <div id="trackpad">Swipe to control cursor</div>
+        <div class="section-title">Live PC Monitor View</div>
+        <img id="stream-view" src="/api/stream?key={{ auth_key }}" alt="Desktop Monitor Feed">
+    </div>
+
+    <!-- Responsive Trackpad Engine -->
+    <div class="section">
+        <div class="section-title">Ultra-Responsive Trackpad</div>
+        <div id="trackpad">Drag surface area to drive cursor</div>
         <div class="mouse-buttons">
-            <button onclick="sendCommand('click', {btn: 'left'})">Left Click</button>
-            <button onclick="sendCommand('click', {btn: 'right'})">Right Click</button>
+            <button onclick="sendAction('click', {btn: 'left'})">Left Click</button>
+            <button onclick="sendAction('click', {btn: 'right'})">Right Click</button>
         </div>
     </div>
 
-    <!-- Media Controls Mapping Grid -->
+    <!-- Application Shortcuts & Macros -->
     <div class="section">
-        <div class="section-title">System Media Array</div>
+        <div class="section-title">Application Control Macros</div>
         <div class="grid-3">
-            <button onclick="sendCommand('media', {action: 'prev'})">⏮️</button>
-            <button onclick="sendCommand('media', {action: 'playpause'})">⏯️</button>
-            <button onclick="sendCommand('media', {action: 'next'})">⏭️</button>
+            <button onclick="sendAction('macro', {app: 'chrome'})">🌐 Chrome</button>
+            <button onclick="sendAction('macro', {app: 'youtube'})">📺 YouTube</button>
+            <button onclick="sendAction('macro', {app: 'netflix'})">🎬 Netflix</button>
         </div>
-        <div class="grid-2" style="margin-top: 10px;">
-            <button onclick="sendCommand('media', {action: 'voldown'})">Vol -</button>
-            <button onclick="sendCommand('media', {action: 'volup'})">Vol +</button>
+        <div class="grid-3" style="margin-top: 8px;">
+            <button onclick="sendAction('macro', {app: 'yt_skip'})">⏩ Skip Ad</button>
+            <button onclick="sendAction('macro', {app: 'fullscreen'})">全 Fullscr</button>
+            <button onclick="sendAction('macro', {app: 'close_tab'})">❌ Close Tab</button>
         </div>
     </div>
 
-    <!-- Live Entry Buffer -->
+    <!-- Media Controls Arrays -->
+    <div class="section">
+        <div class="section-title">Media Arrays</div>
+        <div class="grid-3">
+            <button onclick="sendAction('media', {action: 'prev'})">⏮️</button>
+            <button onclick="sendAction('media', {action: 'playpause'})">⏯️</button>
+            <button onclick="sendAction('media', {action: 'next'})">⏭️</button>
+        </div>
+        <div class="grid-2" style="margin-top: 8px;">
+            <button onclick="sendAction('media', {action: 'voldown'})">Vol -</button>
+            <button onclick="sendAction('media', {action: 'volup'})">Vol +</button>
+        </div>
+    </div>
+
+    <!-- Keyboard Input buffer -->
     <div class="section">
         <div class="section-title">Keyboard String Entry</div>
         <div class="kbd-container">
-            <input type="text" id="keyboardInput" placeholder="Enter string text...">
+            <input type="text" id="keyboardInput" placeholder="Type data parameters...">
             <button onclick="sendText()">Send</button>
-        </div>
-        <div class="grid-2" style="margin-top: 10px;">
-            <button onclick="sendCommand('key', {key: 'enter'})">Enter ↵</button>
-            <button onclick="sendCommand('key', {key: 'backspace'})">⌫ Back</button>
-        </div>
-    </div>
-
-    <!-- OS Execution Targets -->
-    <div class="section">
-        <div class="section-title">Core Power Utilities</div>
-        <div class="grid-3">
-            <button class="danger" onclick="confirmPower('sleep')">Sleep</button>
-            <button class="danger" onclick="confirmPower('restart')">Restart</button>
-            <button class="danger" onclick="confirmPower('shutdown')">Off</button>
         </div>
     </div>
 
     <script>
         let lastX = 0, lastY = 0;
+        const authKey = "{{ auth_key }}";
         const trackpad = document.getElementById('trackpad');
 
         trackpad.addEventListener('touchstart', (e) => {
-            lastX = e.touches[0].clientX;
-            lastY = e.touches[0].clientY;
+            lastX = e.touches.clientX;
+            lastY = e.touches.clientY;
         });
 
         trackpad.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            const currentX = e.touches[0].clientX;
-            const currentY = e.touches[0].clientY;
+            const currentX = e.touches.clientX;
+            const currentY = e.touches.clientY;
             
             const deltaX = currentX - lastX;
             const deltaY = currentY - lastY;
-            const sensitivity = 4.5; // Calibrated speed index multiplier
+            
+            // Highly accelerated speed value multiplier configuration
+            const sensitivity = 4.5; 
 
-            if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-                sendCommand('mousemove', { dx: deltaX * sensitivity, dy: deltaY * sensitivity });
+            if (Math.abs(deltaX) > 0.05 || Math.abs(deltaY) > 0.05) {
+                sendAction('mousemove', { dx: deltaX * sensitivity, dy: deltaY * sensitivity });
             }
             lastX = currentX; lastY = currentY;
         });
 
-        function sendCommand(endpoint, data = {}) {
-            fetch('/api/' + endpoint, {
+        function sendAction(endpoint, data = {}) {
+            fetch('/api/' + endpoint + '?key=' + authKey, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -190,15 +181,8 @@ HTML_TEMPLATE = '''
         function sendText() {
             const input = document.getElementById('keyboardInput');
             if(input.value) {
-                sendCommand('type', { text: input.value });
+                sendAction('type', { text: input.value });
                 input.value = '';
-            }
-        }
-
-        // Prevention layer for dangerous OS actions
-        function confirmPower(action) {
-            if(confirm("Trigger systemic " + action + "?")) {
-                sendCommand('power', { action: action });
             }
         }
     </script>
@@ -206,48 +190,86 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
+def verify_security():
+    client_key = request.args.get('key')
+    return client_key == SECURITY_TOKEN
+
 @app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
+def handle_root_mask():
+    # Return fake IIS web block to mask existence of the interface
+    return render_template_string(IIS_MASK_TEMPLATE)
+
+@app.route(f'/{SECRET_URL_PATH}')
+def handle_authenticated_console():
+    client_key = request.args.get('key')
+    if client_key != SECURITY_TOKEN:
+        return render_template_string(IIS_MASK_TEMPLATE), 403
+    return render_template_string(DASHBOARD_TEMPLATE, auth_key=SECURITY_TOKEN)
 
 @app.route('/api/mousemove', methods=['POST'])
 def mouse_move():
+    if not verify_security(): return jsonify(error="Unauthorized"), 403
     data = request.json
-    pyautogui.moveRel(data['dx'], data['dy'])
+    pyautogui.moveRel(int(data['dx']), int(data['dy']))
     return jsonify(status="success")
 
 @app.route('/api/click', methods=['POST'])
 def mouse_click():
-    btn = request.json.get('btn', 'left')
-    pyautogui.click(button=btn)
+    if not verify_security(): return jsonify(error="Unauthorized"), 403
+    pyautogui.click(button=request.json.get('btn', 'left'))
     return jsonify(status="success")
 
 @app.route('/api/media', methods=['POST'])
 def media_control():
+    if not verify_security(): return jsonify(error="Unauthorized"), 403
+    mapping = {'playpause':'playpause', 'next':'nexttrack', 'prev':'prevtrack', 'volup':'volumeup', 'voldown':'volumedown'}
     action = request.json.get('action')
-    mapping = {'playpause': 'playpause', 'next': 'nexttrack', 'prev': 'prevtrack', 'volup': 'volumeup', 'voldown': 'volumedown'}
-    if action in mapping: 
-        pyautogui.press(mapping[action])
-    return jsonify(status="success")
-
-@app.route('/api/key', methods=['POST'])
-def key_press():
-    pyautogui.press(request.json.get('key'))
+    if action in mapping: pyautogui.press(mapping[action])
     return jsonify(status="success")
 
 @app.route('/api/type', methods=['POST'])
 def text_type():
-    pyautogui.write(request.json.get('text', ''), interval=0.01)
+    if not verify_security(): return jsonify(error="Unauthorized"), 403
+    pyautogui.write(request.json.get('text', ''), interval=0.0)
     return jsonify(status="success")
 
-@app.route('/api/power', methods=['POST'])
-def power_control():
-    action = request.json.get('action')
-    if sys.platform.startswith('win'):
-        if action == 'sleep': os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
-        elif action == 'restart': os.system("shutdown /r /t 1")
-        elif action == 'shutdown': os.system("shutdown /s /t 1")
+@app.route('/api/macro', methods=['POST'])
+def application_macros():
+    if not verify_security(): return jsonify(error="Unauthorized"), 403
+    app_target = request.json.get('app')
+    if app_target == 'chrome':
+        os.system("start chrome")
+    elif app_target == 'youtube':
+        os.system("start chrome youtube.com")
+    elif app_target == 'netflix':
+        os.system("start chrome netflix.com")
+    elif app_target == 'yt_skip':
+        pyautogui.press('tab')
+        pyautogui.press('enter')
+    elif app_target == 'fullscreen':
+        pyautogui.press('f')
+    elif app_target == 'close_tab':
+        pyautogui.hotkey('ctrl', 'w')
     return jsonify(status="success")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+def generate_screen_frames():
+    import PIL.ImageGrab as ImageGrab
+    while True:
+        # Snap active layout view, downscale dimension metrics to respect network overhead
+        img = ImageGrab.grab()
+        img = img.resize((500, 300))
+        frame_buffer = io.BytesIO()
+        img.save(frame_buffer, format='JPEG', quality=40)
+        frame_bytes = frame_buffer.getvalue()
+        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        time.sleep(0.05)  # Keeps loop pacing optimized
+
+@app.route('/api/stream')
+def video_feed_stream():
+    if not verify_security():
+        return "Unauthorized", 403
+    return Response(generate_screen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+if __name__ == 'main':
+    # Run server on high, random port
+    app.run(host='0.0.0.0', port=CUSTOM_PORT, debug=False, threaded=True)
