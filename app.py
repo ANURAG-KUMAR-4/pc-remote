@@ -50,6 +50,7 @@ DASHBOARD_TEMPLATE = '''
         .slider-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 12px; color: #94a3b8; }
         .zoom-slider { flex: 1; accent-color: var(--accent-color); }
         #trackpad { height: 160px; background: #020617; border: 2px dashed #1e293b; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 13px; touch-action: none; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         button { background: #1e293b; color: var(--text-color); border: none; padding: 12px; font-size: 14px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
@@ -81,11 +82,10 @@ DASHBOARD_TEMPLATE = '''
             <span>Zoom View:</span>
             <input type="range" class="zoom-slider" min="1" max="3" step="0.1" value="1" oninput="adjustZoom(this.value)">
         </div>
-        <!-- Live Widescreen Toggle Button Included Safely -->
         <button onclick="launchImmersiveMode()" style="width: 100%; margin-top: 10px; padding: 14px; background: var(--accent-color);">Launch Fullscreen Immersive Mode</button>
     </div>
 
-    <!-- RESTORED: Dedicated Precision Trackpad Workspace Box -->
+    <!-- Original Precision Trackpad Workspace Box -->
     <div class="section">
         <div class="section-title">Precision Trackpad Surface</div>
         <div id="trackpad">Slide finger to drive active cursor</div>
@@ -95,13 +95,13 @@ DASHBOARD_TEMPLATE = '''
         </div>
     </div>
 
-    <!-- Active Hardware Streams (Preserved) -->
+    <!-- Active Hardware Streams -->
     <div class="section">
         <div class="section-title">Hardware Streams to Host PC</div>
         <button id="btn-toggle-hardware" style="width: 100%;">Launch Phone Camera and Mic Stream</button>
         <video id="camera-preview" autoplay playsinline muted></video>
     </div>
-    <!-- Application Control Matrix Macros (Preserved) -->
+    <!-- Application Control Matrix Macros -->
     <div class="section">
         <div class="section-title">Application Control Macros</div>
         <div class="grid-3">
@@ -111,7 +111,7 @@ DASHBOARD_TEMPLATE = '''
         </div>
     </div>
 
-    <!-- System Media Control Layout Row (Preserved) -->
+    <!-- System Media Control Layout Row -->
     <div class="section">
         <div class="section-title">System Media Control Panel</div>
         <div class="grid-3">
@@ -125,21 +125,41 @@ DASHBOARD_TEMPLATE = '''
         </div>
     </div>
 
-    <!-- Character Text Buffers Layout Frame (Preserved) -->
+    <!-- UPGRADED: Text Character Buffers and Modifier/Hotkey Grid Rows -->
     <div class="section">
         <div class="section-title">Text Input and Hotkey Matrix</div>
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <input type="text" id="keyboardInput" placeholder="Type letters/numbers here...">
             <button id="btn-send-text">Send</button>
         </div>
+        
+        <!-- Row 1: Navigational Actions -->
         <div class="grid-3">
             <button onclick="sendAction('key', {key: 'enter'})">Enter</button>
             <button onclick="sendAction('key', {key: 'backspace'})">Back</button>
             <button onclick="sendAction('key', {key: 'space'})">Space</button>
         </div>
+
+        <!-- NEW: Dedicated Modifier and Toggle Key Layout Row -->
+        <div class="grid-4" style="margin-top: 8px; gap: 8px;">
+            <button onclick="sendAction('key', {key: 'ctrl'})">Ctrl</button>
+            <button onclick="sendAction('key', {key: 'alt'})">Alt</button>
+            <button onclick="sendAction('key', {key: 'fn'})">Fn</button>
+            <button onclick="sendAction('key', {key: 'capslock'})">Caps</button>
+        </div>
+
+        <!-- Row 3: Complex Multi-Key Shortcut Sequences -->
+        <div class="grid-2" style="margin-top: 8px; gap: 8px;">
+            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'c']})">Copy (Ctrl+C)</button>
+            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'v']})">Paste (Ctrl+V)</button>
+        </div>
+        <div class="grid-2" style="margin-top: 8px; gap: 8px;">
+            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'a']})">Select All (Ctrl+A)</button>
+            <button onclick="sendAction('hotkey', {keys: ['alt', 'f4']})">Close App (Alt+F4)</button>
+        </div>
     </div>
 
-    <!-- File Workspace Managers Panel (Preserved) -->
+    <!-- File Workspace Managers Panel -->
     <div class="section">
         <div class="section-title">C:\\ Remote File Workspace</div>
         <div id="file-list">Accessing storage partition blocks...</div>
@@ -190,22 +210,34 @@ DASHBOARD_TEMPLATE = '''
             view.style.transformOrigin = val > 1 ? "center center" : "top left";
         }
 
-        // --- TRACKPAD MOUSEPAD LOGIC RETURNED AND BOUND PROPERLY ---
+        // --- TRACKPAD MOUSEPAD LOGIC BOUND PROPERLY ---
         const trackpad = document.getElementById('trackpad');
         trackpad.addEventListener('touchstart', (e) => {
             if(e.touches.length === 1) {
-                lastTrackX = e.touches[0].clientX;
-                lastTrackY = e.touches[0].clientY;
+                lastTrackX = e.touches.clientX;
+                lastTrackY = e.touches.clientY;
             }
         }, {passive: true});
 
+        // Upgraded Trackpad Handler: Ignores empty or invalid touch packages
         trackpad.addEventListener('touchmove', (e) => {
             if(e.touches.length === 1) {
-                const cx = e.touches[0].clientX; const cy = e.touches[0].clientY;
-                sendAction('mousemove', { dx: (cx - lastTrackX) * 4.5, dy: (cy - lastTrackY) * 4.5 });
-                lastTrackX = cx; lastTrackY = cy;
+                const cx = e.touches.clientX; 
+                const cy = e.touches.clientY;
+                
+                if (lastTrackX !== undefined && lastTrackY !== undefined) {
+                    const deltaX = (cx - lastTrackX) * 4.5;
+                    const deltaY = (cy - lastTrackY) * 4.5;
+                    
+                    if (!isNaN(deltaX) && !isNaN(deltaY)) {
+                        sendAction('mousemove', { dx: deltaX, dy: deltaY });
+                    }
+                }
+                lastTrackX = cx; 
+                lastTrackY = cy;
             }
         }, {passive: false});
+
 
         document.getElementById('btn-left-click').addEventListener('click', () => sendAction('click', {btn: 'left'}));
         document.getElementById('btn-right-click').addEventListener('click', () => sendAction('click', {btn: 'right'}));
@@ -282,8 +314,22 @@ def handle_authenticated_console():
 @app.route('/api/mousemove', methods=['POST'])
 def mouse_move():
     if not verify_security(): return "Unauthorized", 403
-    pyautogui.moveRel(int(request.json['dx']), int(request.json['dy']))
+    
+    # Safe Fallback: Extract json keys safely, using 0 if None or missing
+    data = request.json or {}
+    dx = data.get('dx')
+    dy = data.get('dy')
+    
+    safe_dx = int(float(dx)) if dx is not None else 0
+    safe_dy = int(float(dy)) if dy is not None else 0
+    
+    try:
+        pyautogui.moveRel(safe_dx, safe_dy)
+    except:
+        pass
+        
     return jsonify(status="success")
+
 
 @app.route('/api/click', methods=['POST'])
 def mouse_click():
@@ -318,6 +364,15 @@ def key_press():
     if not verify_security(): return "Unauthorized", 403
     pyautogui.press(request.json.get('key'))
     return jsonify(status="success")
+
+@app.route('/api/hotkey', methods=['POST'])
+def hotkey_trigger():
+    if not verify_security(): return "Unauthorized", 403
+    keys_array = request.json.get('keys', [])
+    if keys_array:
+        pyautogui.hotkey(*keys_array)
+    return jsonify(status="success")
+
 @app.route('/api/media', methods=['POST'])
 def media_control():
     if not verify_security(): return "Unauthorized", 403
