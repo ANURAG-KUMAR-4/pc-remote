@@ -7,7 +7,8 @@ import pyautogui
 pyautogui.FAILSAFE = False
 
 app = Flask(__name__)
-
+# Remove default 0.1-second internal latency delays between commands
+pyautogui.PAUSE = 0
 # Complete responsive CSS Grid dashboard interface
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
@@ -170,7 +171,7 @@ HTML_TEMPLATE = '''
             
             const deltaX = currentX - lastX;
             const deltaY = currentY - lastY;
-            const sensitivity = 1.8; // Calibrated speed index multiplier
+            const sensitivity = 4.5; // Calibrated speed index multiplier
 
             if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
                 sendCommand('mousemove', { dx: deltaX * sensitivity, dy: deltaY * sensitivity });
