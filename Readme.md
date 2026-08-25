@@ -1,59 +1,62 @@
-# Custom High-Performance PC Remote Control System
+# PC Remote Pro: Advanced Multi-Monitor Control System
 
-A high-speed, localized remote control platform built with Python (Flask) and low-level Windows API integration. This project allows a mobile device to function as a full-system peripheral, controlling mouse movements, keyboard inputs, and live dual-monitor streaming.
+A high-performance, low-latency remote administration tool built with Python and the Windows Native API. This system transforms any mobile device into a professional peripheral suite, capable of controlling a PC even during secure session transitions (Windows Lock Screen).
 
-## 🚀 Key Features
+## 🚀 Key Engineering Features
 
-- **Low-Latency Screen Mirroring:** High-resolution JPEG streaming from multiple monitors.
-- **Precision Virtual Trackpad:** Native Windows `mouse_event` integration for fluid cursor tracking.
-- **Hardware-Level Input:** Uses Windows Scancodes to bypass software restrictions, allowing control over administrative windows and login screens.
-- **Matrix Keyboard:** Support for character strings and system hotkeys (Ctrl, Alt, Shift, etc.).
-- **Dual-Monitor Support:** Dynamic monitor index switching.
-- **Security-First Architecture:** Optional URI masking and port remapping to secure local network traffic.
+- **Kernel-Level Input Injection:** Bypasses standard software limitations by using `win32api` to inject mouse and keyboard events directly into the hardware input buffer.
+- **Session-Aware Desktop Switching:** Implements a specialized hook using `win32service.OpenInputDesktop` to maintain control when the PC switches to the "Winlogon" (password) desktop.
+- **Native MJPEG Streaming:** Optimized multi-threaded display engine providing smooth, high-frame-rate visual feedback from multiple monitors simultaneously.
+- **Immersive Viewport UX:** A borderless fullscreen mode with a transparent floating action menu (Hot Ball) for seamless navigation.
+- **Complete Peripheral Matrix:**
+  - **Precision Trackpad:** Responsive cursor tracking with variable sensitivity.
+  - **Media Deck:** Full control over System Volume and Playback (Prev, Play/Pause, Next).
+  - **Hardware Modifiers:** Dedicated toggles for `Ctrl`, `Alt`, `Fn`, and `Caps Lock`.
+  - **Storage Workspace:** Direct remote browsing of the local file system.
 
-## 🛠️ Tech Stack
+## 🛠️ Technology Stack
 
-- **Backend:** Python 3.x
-- **Framework:** Flask (Asynchronous threading enabled)
-- **Input Drivers:** Win32 API (`pywin32`)
-- **Display Engine:** `mss` (Multi-screen shot) & `Pillow` for real-time image processing
+- **Backend:** Python 3.13 / Flask (Asynchronous)
+- **OS Integration:** Microsoft Win32 API (`pywin32`)
+- **Graphics:** `mss` (Kernel-level screen capture) & `Pillow` (Image Matrix Processing)
+- **Frontend:** HTML5 Canvas / CSS3 Grid / Vanilla JavaScript (ES6)
 
 ## 📦 Installation & Setup
 
-1. **Clone the repository:**
+1. **Clone the project:**
    ```bash
    git clone https://github.com
    cd pc-remote
    ```
 
-2. **Setup Virtual Environment:**
-   ```bash
+2. **Initialize Environment:**
+   ```powershell
    python -m venv .venv
    .\.venv\Scripts\activate
+   pip install flask pyautogui pillow mss pywin32
    ```
 
-3. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the Server:**
-   ```bash
+3. **Deploy with Privileges:**
+   To enable Lock-Screen control and hardware injection, launch the server as **Administrator**:
+   ```powershell
    python app.py
    ```
 
-## 📱 Mobile Connection
+## 🌐 Network Configuration & Masking
 
-Once the server is running, find your laptop's local IP using `ipconfig` and navigate to:
-`http://<YOUR_IP>:38491`
+This project utilizes **mDNS (Multicast DNS)** to obfuscate the host's raw IP address. Instead of numbers, connect using your machine's hostname:
 
-*Note: For the best experience, use "Add to Home Screen" on your mobile browser to run the application in borderless standalone mode.*
+```text
+URL: http://[YOUR-HOSTNAME].local:38491
+```
 
-## 🔒 Security & Policy Configuration
+## 🔒 Security Policy Requirements
 
-To enable control over the Windows Secure Desktop (Login Screen), the following local policy was implemented:
-- **Policy:** `Disable or enable software Secure Attention Sequence`
-- **Configuration:** Set to `Enabled` with `Services and Ease of Access applications`.
+To allow the application to interact with the Windows Secure Desktop (Login Screen), the following Local Group Policy must be configured:
+1. Run `gpedit.msc`.
+2. Navigate to: `Computer Configuration -> Administrative Templates -> Windows Components -> Windows Logon Options`.
+3. Set **"Disable or enable software Secure Attention Sequence"** to **Enabled**.
+4. Select **"Services and Ease of Access applications"** in the options pane.
 
 ---
-Developed by [Anurag Kumar]
+**Developed by [Anurag Kumar]**
