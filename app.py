@@ -1,21 +1,9 @@
-import os
-import sys
-import io
-import time
+import os, sys, io, time
 from flask import Flask, render_template_string, request, jsonify, Response
-import pyautogui
-
-# Ultimate Performance Configurations
-pyautogui.FAILSAFE = False
-pyautogui.PAUSE = 0
+import win32api, win32con, win32service
 
 app = Flask(__name__)
-
-SECRET_URL_PATH = "remote"
-SECURITY_TOKEN = "alpha_secure_99"
 CUSTOM_PORT = 38491
-
-IIS_MASK_TEMPLATE = '''<!DOCTYPE html><html><head><title>IIS Windows Server</title><style>body { font-family: 'Segoe UI', sans-serif; background-color: #244976; color: #fff; padding: 40px; } .container { max-width: 600px; margin: 0 auto; } h1 { font-size: 42px; font-weight: 300; } p { font-size: 16px; color: #a9c7ed; }</style></head><body><div class="container"><h1>Internet Information Services</h1><p>Static distribution block active.</p></div></body></html>'''
 
 DASHBOARD_TEMPLATE = '''
 <!DOCTYPE html>
@@ -23,405 +11,191 @@ DASHBOARD_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Enterprise System Controller</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PC Remote Pro Master</title>
     <style>
-        :root {
-            --bg-color: #090d16;
-            --card-color: #131c2e;
-            --accent-color: #2563eb;
-            --text-color: #f1f5f9;
-            --danger-color: #dc2626;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color); color: var(--text-color);
-            margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center;
-            user-select: none; -webkit-user-select: none; overflow-x: hidden;
-        }
-        .section { width: 100%; max-width: 440px; background: var(--card-color); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-sizing: border-box; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4); }
-        .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 10px; font-weight: 700; }
-        .tab-bar { display: flex; gap: 8px; margin-bottom: 10px; width: 100%; }
-        .tab-btn { flex: 1; padding: 10px; background: #1e293b; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; color: white; cursor: pointer; border: none; }
-        .tab-btn.active { background: var(--accent-color); }
-        .stream-wrapper { position: relative; width: 100%; overflow: hidden; border-radius: 8px; border: 1px solid #1e293b; background: #000; }
-        #stream-view { width: 100%; display: block; object-fit: contain; transform-origin: top left; transition: transform 0.1s ease; }
-        .slider-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 12px; color: #94a3b8; }
-        .zoom-slider { flex: 1; accent-color: var(--accent-color); }
-        #trackpad { height: 160px; background: #020617; border: 2px dashed #1e293b; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 13px; touch-action: none; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        button { background: #1e293b; color: var(--text-color); border: none; padding: 12px; font-size: 14px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        button:active { background: var(--accent-color); }
+        :root { --bg: #090d16; --card: #131c2e; --accent: #2563eb; --text: #f1f5f9; --danger: #dc2626; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 12px; display: flex; flex-direction: column; align-items: center; user-select: none; }
+        .section { width: 100%; max-width: 440px; background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-sizing: border-box; }
+        .section-title { font-size: 11px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; font-weight: 700; }
+        .tab-bar { display: flex; gap: 8px; margin-bottom: 10px; }
+        .tab-btn { flex: 1; padding: 10px; background: #1e293b; border-radius: 6px; color: white; border: none; font-weight: bold; }
+        .tab-btn.active { background: var(--accent); }
+        #view { width: 100%; border-radius: 8px; display: block; background: #000; border: 1px solid #333; }
+        #pad { height: 180px; background: #020617; border: 2px dashed #1e293b; border-radius: 12px; margin-top: 10px; display: flex; align-items: center; justify-content: center; color: #475569; touch-action: none; }
+        .grid { display: grid; gap: 8px; margin-top: 10px; }
+        button { background: #1e293b; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        button:active { background: var(--accent); }
+        input { width: 60%; padding: 12px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; }
+        #camera-preview { width: 100%; height: 140px; background: #000; border-radius: 6px; display: none; object-fit: cover; margin-top: 8px; }
         .file-item { display: flex; justify-content: space-between; padding: 8px; background: #020617; margin-bottom: 4px; border-radius: 4px; font-size: 13px; }
-        #camera-preview { width: 100%; height: 140px; background: #020617; border-radius: 6px; display: none; object-fit: cover; margin-top: 8px; }
-        
-        /* --- IMMERSIVE FULLSCREEN LAYER --- */
-        #immersive-viewport { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99999; overflow: hidden; touch-action: none; }
-        #fullscreen-canvas { width: 100%; height: 100%; object-fit: contain; }
-        #action-orb { position: absolute; top: 20px; left: 20px; width: 50px; height: 50px; background: rgba(37, 99, 235, 0.6); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 100001; touch-action: none; }
-        #orb-menu { display: none; position: absolute; top: 80px; left: 20px; background: rgba(19, 28, 46, 0.95); border: 1px solid #1e293b; border-radius: 8px; padding: 10px; width: 160px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100002; }
-        .orb-menu-btn { width: 100%; margin-bottom: 6px; padding: 8px; font-size: 12px; }
-        #floating-keyboard-wrapper { display: none; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(9, 13, 22, 0.95); border: 1px solid #1e293b; border-radius: 10px; padding: 10px; width: 90%; max-width: 500px; z-index: 100003; }
+        #immersive-viewport { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99999; }
+        #fs-canvas { width: 100%; height: 100%; object-fit: contain; }
+        #orb { position: absolute; top: 20px; left: 20px; width: 50px; height: 50px; background: rgba(37,99,235,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 100001; color: white; }
     </style>
 </head>
+'''
+DASHBOARD_TEMPLATE += '''
 <body>
-    <!-- Monitor Active View Windows -->
     <div class="section">
-        <div class="section-title">Select Active View Window</div>
+        <div class="section-title">Live Desktop</div>
         <div class="tab-bar">
-            <button class="tab-btn active" onclick="switchMonitor(0)">Monitor 1</button>
-            <button class="tab-btn" onclick="switchMonitor(1)">Monitor 2</button>
+            <button class="tab-btn active" onclick="sm(0)">Screen 1</button>
+            <button class="tab-btn" onclick="sm(1)">Screen 2</button>
         </div>
-        <div class="stream-wrapper">
-            <img id="stream-view" src="/api/stream?monitor=0&key={{ auth_key }}" alt="Desktop Display Stream">
-        </div>
-        <div class="slider-container">
-            <span>Zoom View:</span>
-            <input type="range" class="zoom-slider" min="1" max="3" step="0.1" value="1" oninput="adjustZoom(this.value)">
-        </div>
-        <button onclick="launchImmersiveMode()" style="width: 100%; margin-top: 10px; padding: 14px; background: var(--accent-color);">Launch Fullscreen Immersive Mode</button>
+        <img id="view" src="">
+        <button onclick="launchFS()" style="width:100%; margin-top:10px; background:var(--accent);">Launch Fullscreen Mode</button>
     </div>
 
-    <!-- Original Precision Trackpad Workspace Box -->
     <div class="section">
-        <div class="section-title">Precision Trackpad Surface</div>
-        <div id="trackpad">Slide finger to drive active cursor</div>
-        <div class="grid-2" style="margin-top: 10px;">
-            <button id="btn-left-click">Left Click</button>
-            <button id="btn-right-click">Right Click</button>
+        <div id="pad">TRACKPAD</div>
+        <div class="grid" style="grid-template-columns: 1fr 1fr;">
+            <button onclick="act('click',{b:'l'})">LEFT CLICK</button>
+            <button onclick="act('click',{b:'r'})">RIGHT CLICK</button>
         </div>
     </div>
 
-    <!-- Active Hardware Streams -->
     <div class="section">
-        <div class="section-title">Hardware Streams to Host PC</div>
-        <button id="btn-toggle-hardware" style="width: 100%;">Launch Phone Camera and Mic Stream</button>
+        <div class="section-title">App Macros & Hardware</div>
+        <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+            <button onclick="act('macro',{a:'chrome'})">Chrome</button>
+            <button onclick="act('macro',{a:'yt'})">YouTube</button>
+            <button onclick="act('macro',{a:'nf'})">Netflix</button>
+        </div>
+        <button id="cam-btn" onclick="startCam()" style="width:100%; margin-top:10px;">Start Camera/Mic</button>
         <video id="camera-preview" autoplay playsinline muted></video>
     </div>
-    <!-- Application Control Matrix Macros -->
+'''
+DASHBOARD_TEMPLATE += '''
     <div class="section">
-        <div class="section-title">Application Control Macros</div>
-        <div class="grid-3">
-            <button onclick="sendAction('macro', {app: 'chrome'})">Chrome</button>
-            <button onclick="sendAction('macro', {app: 'youtube'})">YouTube</button>
-            <button onclick="sendAction('macro', {app: 'netflix'})">Netflix</button>
+        <div class="section-title">Keyboard & Modifiers</div>
+        <div style="display:flex; gap:5px;"><input type="text" id="k"><button onclick="sendT()" style="flex:1;">SEND</button></div>
+        <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+            <button onclick="act('key',{k:'ctrl'})">Ctrl</button>
+            <button onclick="act('key',{k:'alt'})">Alt</button>
+            <button onclick="act('key',{k:'fn'})">Fn</button>
+            <button onclick="act('key',{k:'caps'})">Caps</button>
+        </div>
+        <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+            <button onclick="act('key',{k:'enter'})">Enter</button>
+            <button onclick="act('key',{k:'backspace'})">Del</button>
+            <button onclick="act('key',{k:'space'})">Space</button>
         </div>
     </div>
 
-    <!-- System Media Control Layout Row -->
     <div class="section">
-        <div class="section-title">System Media Control Panel</div>
-        <div class="grid-3">
-            <button onclick="sendAction('media', {action: 'prev'})">Prev</button>
-            <button onclick="sendAction('media', {action: 'playpause'})">Play</button>
-            <button onclick="sendAction('media', {action: 'next'})">Next</button>
+        <div class="section-title">Media & Files</div>
+        <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+            <button onclick="act('media',{a:'volup'})">Vol +</button>
+            <button onclick="act('media',{a:'voldown'})">Vol -</button>
+            <button onclick="act('media',{a:'pp'})">⏯</button>
         </div>
-        <div class="grid-2" style="margin-top: 8px;">
-            <button onclick="sendAction('media', {action: 'voldown'})">Vol -</button>
-            <button onclick="sendAction('media', {action: 'volup'})">Vol +</button>
-        </div>
+        <div id="file-list" style="margin-top:10px;">Loading files...</div>
     </div>
 
-    <!-- UPGRADED: Text Character Buffers and Modifier/Hotkey Grid Rows -->
-    <div class="section">
-        <div class="section-title">Text Input and Hotkey Matrix</div>
-        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" id="keyboardInput" placeholder="Type letters/numbers here...">
-            <button id="btn-send-text">Send</button>
-        </div>
-        
-        <!-- Row 1: Navigational Actions -->
-        <div class="grid-3">
-            <button onclick="sendAction('key', {key: 'enter'})">Enter</button>
-            <button onclick="sendAction('key', {key: 'backspace'})">Back</button>
-            <button onclick="sendAction('key', {key: 'space'})">Space</button>
-        </div>
-
-        <!-- NEW: Dedicated Modifier and Toggle Key Layout Row -->
-        <div class="grid-4" style="margin-top: 8px; gap: 8px;">
-            <button onclick="sendAction('key', {key: 'ctrl'})">Ctrl</button>
-            <button onclick="sendAction('key', {key: 'alt'})">Alt</button>
-            <button onclick="sendAction('key', {key: 'fn'})">Fn</button>
-            <button onclick="sendAction('key', {key: 'capslock'})">Caps</button>
-        </div>
-
-        <!-- Row 3: Complex Multi-Key Shortcut Sequences -->
-        <div class="grid-2" style="margin-top: 8px; gap: 8px;">
-            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'c']})">Copy (Ctrl+C)</button>
-            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'v']})">Paste (Ctrl+V)</button>
-        </div>
-        <div class="grid-2" style="margin-top: 8px; gap: 8px;">
-            <button onclick="sendAction('hotkey', {keys: ['ctrl', 'a']})">Select All (Ctrl+A)</button>
-            <button onclick="sendAction('hotkey', {keys: ['alt', 'f4']})">Close App (Alt+F4)</button>
-        </div>
-    </div>
-
-    <!-- File Workspace Managers Panel -->
-    <div class="section">
-        <div class="section-title">C:\\ Remote File Workspace</div>
-        <div id="file-list">Accessing storage partition blocks...</div>
-    </div>
-
-    <!-- IMMERSIVE WIDESCREEN VIEWPORT ENGINE PANEL -->
     <div id="immersive-viewport">
-        <div id="action-orb">MENU</div>
-        <div id="orb-menu">
-            <button class="orb-menu-btn" onclick="cycleMonitor()">Switch Monitor</button>
-            <button class="orb-menu-btn" onclick="toggleFloatingKeyboard()">Keyboard Input</button>
-            <button class="orb-menu-btn" onclick="adjustOrbOpacity()">Fade Ball</button>
-            <button class="orb-menu-btn" style="background:var(--danger-color);" onclick="exitImmersiveMode()">Exit Fullscreen</button>
-        </div>
-        <div id="floating-keyboard-wrapper">
-            <div style="display:flex; gap:6px; margin-bottom:6px;">
-                <input type="text" id="floatingInput" style="flex:1; padding:8px; border-radius:4px; border:1px solid #334155; background:#020617; color:white;" placeholder="Type data parameters...">
-                <button onclick="sendFloatingText()">Send</button>
-            </div>
-        </div>
-        <img id="fullscreen-canvas" src="" alt="Live Desktop Environment Grid">
+        <div id="orb" onclick="exitFS()">Exit</div>
+        <img id="fs-canvas" src="">
     </div>
+'''
+DASHBOARD_TEMPLATE += '''
     <script>
-        const authKey = "{{ auth_key }}";
-        let currentMonitor = 0;
-        let orbOpacityState = 0.6;
-        let lastTouchX = 0, lastTouchY = 0;
-        let lastTrackX = 0, lastTrackY = 0;
-        let isDraggingMouse = false;
+        let currentMonitor = 0; let lastX, lastY;
+        function act(e, d={}) { fetch('/api/'+e, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)}); }
+        function sm(i) { currentMonitor = i; document.getElementById('view').src = "/stream?m="+i; }
+        
+        const pad = document.getElementById('pad');
+        pad.addEventListener('touchstart', e => { lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; });
+        pad.addEventListener('touchmove', e => {
+            e.preventDefault();
+            let dx = (e.touches[0].clientX - lastX) * 3;
+            let dy = (e.touches[0].clientY - lastY) * 3;
+            act('move', {dx, dy});
+            lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+        }, {passive:false});
 
-        function sendAction(endpoint, data = {}) {
-            return fetch('/api/' + endpoint + '?key=' + authKey, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+        function sendT() { const i = document.getElementById('k'); act('type', {t: i.value}); i.value=''; }
+        function launchFS() { document.getElementById('immersive-viewport').style.display='block'; document.getElementById('fs-canvas').src="/stream?m="+currentMonitor; }
+        function exitFS() { document.getElementById('immersive-viewport').style.display='none'; }
+        
+        async function startCam() {
+            const s = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            const v = document.getElementById('camera-preview'); v.srcObject = s; v.style.display="block";
         }
-
-        function switchMonitor(index) {
-            currentMonitor = index;
-            document.querySelectorAll('.tab-btn').forEach((btn, i) => { btn.classList.toggle('active', i === index); });
-            document.getElementById('stream-view').src = "/api/stream?monitor=" + index + "&key=" + authKey;
-        }
-
-        function adjustZoom(val) {
-            const view = document.getElementById('stream-view');
-            view.style.transform = "scale(" + val + ")";
-            view.style.transformOrigin = val > 1 ? "center center" : "top left";
-        }
-
-        // --- TRACKPAD MOUSEPAD LOGIC BOUND PROPERLY ---
-        const trackpad = document.getElementById('trackpad');
-        trackpad.addEventListener('touchstart', (e) => {
-            if(e.touches.length === 1) {
-                lastTrackX = e.touches.clientX;
-                lastTrackY = e.touches.clientY;
-            }
-        }, {passive: true});
-
-        // Upgraded Trackpad Handler: Ignores empty or invalid touch packages
-        trackpad.addEventListener('touchmove', (e) => {
-            if(e.touches.length === 1) {
-                const cx = e.touches.clientX; 
-                const cy = e.touches.clientY;
-                
-                if (lastTrackX !== undefined && lastTrackY !== undefined) {
-                    const deltaX = (cx - lastTrackX) * 4.5;
-                    const deltaY = (cy - lastTrackY) * 4.5;
-                    
-                    if (!isNaN(deltaX) && !isNaN(deltaY)) {
-                        sendAction('mousemove', { dx: deltaX, dy: deltaY });
-                    }
-                }
-                lastTrackX = cx; 
-                lastTrackY = cy;
-            }
-        }, {passive: false});
-
-
-        document.getElementById('btn-left-click').addEventListener('click', () => sendAction('click', {btn: 'left'}));
-        document.getElementById('btn-right-click').addEventListener('click', () => sendAction('click', {btn: 'right'}));
-        document.getElementById('btn-send-text').addEventListener('click', () => {
-            const input = document.getElementById('keyboardInput');
-            if(input.value) { sendAction('type', { text: input.value }); input.value = ''; }
-        });
-
-        // --- IMMERSIVE MODE METHODS ---
-        function launchImmersiveMode() {
-            document.getElementById('immersive-viewport').style.display = 'block';
-            document.getElementById('fullscreen-canvas').src = "/api/stream?monitor=" + currentMonitor + "&key=" + authKey;
-            if (screen.orientation && screen.orientation.lock) { screen.orientation.lock('landscape').catch(() => {}); }
-            if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen(); }
-        }
-
-        function exitImmersiveMode() {
-            document.getElementById('immersive-viewport').style.display = 'none';
-            document.getElementById('fullscreen-canvas').src = "";
-            if (document.exitFullscreen) { document.exitFullscreen().catch(() => {}); }
-            if (screen.orientation && screen.orientation.unlock) { screen.orientation.unlock(); }
-        }
-
-        const canvas = document.getElementById('fullscreen-canvas');
-        canvas.addEventListener('touchstart', (e) => { if(e.touches.length===1){ lastTouchX=e.touches.clientX; lastTouchY=e.touches.clientY; isDraggingMouse=false; } });
-        canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1) {
-                isDraggingMouse = true;
-                const cx = e.touches.clientX; const cy = e.touches.clientY;
-                sendAction('mousemove', { dx: (cx - lastTouchX) * 3.5, dy: (cy - lastTouchY) * 3.5 });
-                lastTouchX = cx; lastTouchY = cy;
-            }
-        });
-        canvas.addEventListener('touchend', (e) => {
-            if (!isDraggingMouse) {
-                const rect = canvas.getBoundingClientRect();
-                sendAction('directclick', { x: (lastTouchX - rect.left) / rect.width, y: (lastTouchY - rect.top) / rect.height, monitor: currentMonitor });
-            }
-        });
-
-        const orb = document.getElementById('action-orb'); const menu = document.getElementById('orb-menu');
-        orb.addEventListener('click', (e) => { e.stopPropagation(); menu.style.display = menu.style.display === 'block' ? 'none' : 'block'; });
-        orb.addEventListener('touchmove', (e) => { if(e.touches.length===1){ orb.style.left=e.touches.clientX-25+'px'; orb.style.top=e.touches.clientY-25+'px'; menu.style.left=orb.style.left; menu.style.top=parseInt(orb.style.top)+60+'px'; } });
-
-        function cycleMonitor() { currentMonitor = currentMonitor === 0 ? 1 : 0; document.getElementById('fullscreen-canvas').src = "/api/stream?monitor=" + currentMonitor + "&key=" + authKey; menu.style.display = 'none'; }
-        function toggleFloatingKeyboard() { const kb = document.getElementById('floating-keyboard-wrapper'); kb.style.display = kb.style.display==='block'?'none':'block'; menu.style.display = 'none'; }
-        function adjustOrbOpacity() { orbOpacityState = orbOpacityState <= 0.2 ? 0.8 : orbOpacityState - 0.2; orb.style.background = `rgba(37, 99, 235, ${orbOpacityState})`; }
-        function sendFloatingText() { const el = document.getElementById('floatingInput'); if(el.value){ sendAction('type', { text: el.value }); el.value = ''; } }
-
-        document.getElementById('btn-toggle-hardware').addEventListener('click', async () => {
-            try { const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); const v = document.getElementById('camera-preview'); v.srcObject = s; v.style.display = "block"; } catch (e) {}
-        });
 
         async function loadFiles() {
-            try {
-                const res = await fetch('/api/files?key=' + authKey); const data = await res.json();
-                const container = document.getElementById('file-list'); container.innerHTML = '';
-                data.files.forEach(f => { container.innerHTML += `<div class="file-item"><span>${f.name}</span><button>Open</button></div>`; });
-            } catch(e) {}
+            const r = await fetch('/api/files'); const d = await r.json();
+            const c = document.getElementById('file-list'); c.innerHTML = '';
+            d.files.forEach(f => { c.innerHTML += `<div class="file-item"><span>${f.name}</span><button>Get</button></div>`; });
         }
-        loadFiles();
+        window.onload = () => { sm(0); loadFiles(); };
     </script>
-</body>
-</html>
+</body></html>
 '''
-def verify_security(): return request.args.get('key') == SECURITY_TOKEN
+VK = {'enter':0x0D, 'backspace':0x08, 'ctrl':0x11, 'alt':0x12, 'space':0x20, 'caps':0x14}
+
 @app.route('/')
-def handle_root_mask(): return render_template_string(IIS_MASK_TEMPLATE)
-@app.route(f'/{SECRET_URL_PATH}')
-def handle_authenticated_console():
-    if not verify_security(): return render_template_string(IIS_MASK_TEMPLATE), 403
-    return render_template_string(DASHBOARD_TEMPLATE, auth_key=SECURITY_TOKEN)
+def index(): return render_template_string(DASHBOARD_TEMPLATE)
 
-@app.route('/api/mousemove', methods=['POST'])
-def mouse_move():
-    if not verify_security(): return "Unauthorized", 403
-    
-    # Safe Fallback: Extract json keys safely, using 0 if None or missing
-    data = request.json or {}
-    dx = data.get('dx')
-    dy = data.get('dy')
-    
-    safe_dx = int(float(dx)) if dx is not None else 0
-    safe_dy = int(float(dy)) if dy is not None else 0
-    
-    try:
-        pyautogui.moveRel(safe_dx, safe_dy)
-    except:
-        pass
-        
-    return jsonify(status="success")
-
+@app.route('/api/move', methods=['POST'])
+def move():
+    d = request.json
+    win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(d['dx']), int(d['dy']), 0, 0)
+    return "ok"
 
 @app.route('/api/click', methods=['POST'])
-def mouse_click():
-    if not verify_security(): return "Unauthorized", 403
-    pyautogui.click(button=request.json.get('btn', 'left'))
-    return jsonify(status="success")
-
-@app.route('/api/directclick', methods=['POST'])
-def direct_screen_click():
-    if not verify_security(): return "Unauthorized", 403
-    import screeninfo
-    try:
-        monitors = screeninfo.get_monitors()
-        m_idx = int(request.json.get('monitor', 0))
-        m = monitors[m_idx] if m_idx < len(monitors) else monitors
-        tx = m.x + int(request.json['x'] * m.width)
-        ty = m.y + int(request.json['y'] * m.height)
-        pyautogui.click(tx, ty)
-    except:
-        w, h = pyautogui.size()
-        pyautogui.click(int(request.json['x'] * w), int(request.json['y'] * h))
-    return jsonify(status="success")
+def click():
+    b = request.json['b']; down = win32con.MOUSEEVENTF_LEFTDOWN if b=='l' else win32con.MOUSEEVENTF_RIGHTDOWN
+    up = win32con.MOUSEEVENTF_LEFTUP if b=='l' else win32con.MOUSEEVENTF_RIGHTUP
+    win32api.mouse_event(down,0,0,0,0); win32api.mouse_event(up,0,0,0,0); return "ok"
 
 @app.route('/api/type', methods=['POST'])
-def text_type():
-    if not verify_security(): return "Unauthorized", 403
-    pyautogui.write(request.json.get('text', ''))
-    return jsonify(status="success")
+def type_t():
+    for c in request.json['t']:
+        vk = win32api.VkKeyScan(c)
+        if vk != -1: win32api.keybd_event(vk & 0xFF,0,0,0); win32api.keybd_event(vk & 0xFF,0,win32con.KEYEVENTF_KEYUP,0)
+    return "ok"
 
 @app.route('/api/key', methods=['POST'])
-def key_press():
-    if not verify_security(): return "Unauthorized", 403
-    pyautogui.press(request.json.get('key'))
-    return jsonify(status="success")
-
-@app.route('/api/hotkey', methods=['POST'])
-def hotkey_trigger():
-    if not verify_security(): return "Unauthorized", 403
-    keys_array = request.json.get('keys', [])
-    if keys_array:
-        pyautogui.hotkey(*keys_array)
-    return jsonify(status="success")
-
-@app.route('/api/media', methods=['POST'])
-def media_control():
-    if not verify_security(): return "Unauthorized", 403
-    mapping = {'playpause':'playpause', 'next':'nexttrack', 'prev':'prevtrack', 'volup':'volumeup', 'voldown':'volumedown'}
-    action = request.json.get('action')
-    if action in mapping: pyautogui.press(mapping[action])
-    return jsonify(status="success")
+def key_p():
+    v = VK.get(request.json['k'])
+    if v: win32api.keybd_event(v,0,0,0); win32api.keybd_event(v,0,win32con.KEYEVENTF_KEYUP,0)
+    return "ok"
 
 @app.route('/api/macro', methods=['POST'])
-def application_macros():
-    if not verify_security(): return "Unauthorized", 403
-    t = request.json.get('app')
-    if t == 'chrome': os.system("start chrome")
-    elif t == 'youtube': os.system("start chrome youtube.com")
-    elif t == 'netflix': os.system("start chrome netflix.com")
-    return jsonify(status="success")
+def macro():
+    a = request.json['a']
+    if a == 'chrome': os.system("start chrome")
+    elif a == 'yt': os.system("start chrome youtube.com")
+    elif a == 'nf': os.system("start chrome netflix.com")
+    return "ok"
+
+@app.route('/api/media', methods=['POST'])
+def media():
+    m = {'volup':0xAF, 'voldown':0xAE, 'pp':0xB3}
+    win32api.keybd_event(m[request.json['a']],0,0,0)
+    return "ok"
 
 @app.route('/api/files')
-def list_files():
-    if not verify_security(): return "Unauthorized", 403
-    try:
-        items = [{"name": i} for i in os.listdir("C:\\\\")[:5]]
-        return jsonify(files=items)
-    except: return jsonify(files=[{"name": "System Root Secured"}])
+def list_f():
+    items = [{"name": i} for i in os.listdir("C:\\\\")[:5]]
+    return jsonify(files=items)
 
-def generate_monitor_frame(monitor_id):
+def gen(m_id):
     import mss
     from PIL import Image
     with mss.mss() as sct:
         while True:
             try:
-                monitors = sct.monitors
-                target_idx = (monitor_id + 1) if (monitor_id + 1) < len(monitors) else 1
-                target = monitors[target_idx]
-                
-                sct_img = sct.grab(target)
-                img = io.BytesIO(mss.tools.to_png(sct_img.rgb, sct_img.size))
-                
-                pil_img = Image.open(img).resize((1920, 1080))
-                frame_buffer = io.BytesIO()
-                pil_img.save(frame_buffer, format='JPEG', quality=85)
-                yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame_buffer.getvalue() + b'\r\n')
+                img = sct.grab(sct.monitors[m_id+1])
+                p_img = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX").resize((1024, 576))
+                buf = io.BytesIO(); p_img.save(buf, format='JPEG', quality=60)
+                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buf.getvalue() + b'\r\n')
             except: pass
             time.sleep(0.04)
 
-@app.route('/api/stream')
-def video_feed_stream():
-    if not verify_security(): return "Unauthorized", 403
-    return Response(generate_monitor_frame(int(request.args.get('monitor', 0))), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/stream')
+def stream():
+    return Response(gen(int(request.args.get('m', 0))), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=CUSTOM_PORT, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=38491, threaded=True)
