@@ -85,9 +85,13 @@ DASHBOARD_TEMPLATE += '''
     <div class="section">
         <div class="section-title">Media & Files</div>
         <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
-            <button onclick="act('media',{a:'volup'})">Vol +</button>
+            <button onclick="act('media',{a:'prev'})">⏮ Prev</button>
+            <button onclick="act('media',{a:'pp'})">⏯ Play</button>
+            <button onclick="act('media',{a:'next'})">⏭ Next</button>
+        </div>
+        <div class="grid" style="grid-template-columns: 1fr 1fr; margin-top: 8px;">
             <button onclick="act('media',{a:'voldown'})">Vol -</button>
-            <button onclick="act('media',{a:'pp'})">⏯</button>
+            <button onclick="act('media',{a:'volup'})">Vol +</button>
         </div>
         <div id="file-list" style="margin-top:10px;">Loading files...</div>
     </div>
